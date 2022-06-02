@@ -9,7 +9,6 @@
 #ifdef VM
 #include "vm/vm.h"
 #endif
-
 /* States in a thread's life cycle. */
 enum thread_status
 {
@@ -126,6 +125,9 @@ struct thread
     int exit_status;
     struct semaphore exit_sema;
     int is_exit; // likes thread_status
+
+    /*** hyeRexx : deny ***/
+    struct file *curr_file;
 #endif 
 
 #ifdef VM
@@ -133,7 +135,7 @@ struct thread
 	struct supplemental_page_table spt;
 #endif
 
-	/* Owned by thread.c. */
+	/* Owned by thread.c. */ 
 	struct intr_frame tf; /* Information for switching */
 	unsigned magic;		  /* Detects stack overflow. */
 };

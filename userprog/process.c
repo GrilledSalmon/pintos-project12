@@ -18,6 +18,7 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -64,6 +65,10 @@ process_create_initd (const char *file_name) {
 		palloc_free_page (fn_copy);
 		palloc_free_page (fn_for_tok); /*** hyeRexx ***/
     }
+
+    /*** hyeRexx : deny ***/
+    sema_init(&file_sema, 1);
+
 	return tid;
 }
 
@@ -234,7 +239,7 @@ process_exec (void *f_name) {
 	/* If load failed, quit. */
 	if (!success)
     {
-	    palloc_free_page (file_name);
+	    // palloc_free_page (file_name);
 	    // palloc_free_page(args_parsed);
 		return -1;
     }
@@ -310,6 +315,7 @@ process_wait (tid_t child_tid UNUSED) {
 		sema_down(&(child->exit_sema));
 	
 	ret_exit_status = child->exit_status;
+    if(ret_exit_status == -1) return -1;
 	remove_child_process(child);
 
 	return ret_exit_status;
@@ -335,6 +341,14 @@ process_exit (void) {
 		process_close_file(curr_fd_edge);
 	palloc_free_page(thread_current()->fdt);	// 할당받은 fdt page 반납
 	thread_current()->fdt = NULL;				// 명시적 NULL
+
+    /*** hyeRexx : deny ***/
+    if(curr->curr_file) 
+    {
+        sema_down(&file_sema);
+        file_allow_write(curr->curr_file);
+        sema_up(&file_sema);
+    }
 
 	process_cleanup ();
 }
@@ -455,19 +469,18 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
-	// /* Open executable file. */
-	// file = filesys_open (file_name);
-	// if (file == NULL) {  
-	// 	printf ("load: %s: open failed\n", file_name);
-	// 	goto done;
-	// }
-
-    /*** debugging genie ***/
+    /*** hyeRexx : deny ***/
+    sema_down(&file_sema);
 	file = filesys_open (file_name);
 	if (file == NULL) {  
+        sema_up(&file_sema);
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
+
+    t->curr_file = file;
+    file_deny_write(file);
+    sema_up(&file_sema);
 
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -548,7 +561,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close (file);
+	// file_close (file);
 	return success;
 }
 

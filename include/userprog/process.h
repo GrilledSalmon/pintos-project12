@@ -2,6 +2,10 @@
 #define USERPROG_PROCESS_H
 
 #include "threads/thread.h"
+#include "threads/synch.h"
+
+/*** hyeRexx : deny ***/
+static struct semaphore file_sema;
 
 tid_t process_create_initd (const char *file_name);
 tid_t process_fork (const char *name, struct intr_frame *if_);
