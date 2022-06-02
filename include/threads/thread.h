@@ -116,6 +116,7 @@ struct thread
 	struct file **fdt;				// file descriptor table
 	int fd_edge;					// file descriptor edge num
     
+#endif 
     /*** team 8 : phase 3 ***/
 	struct thread *parent;
     struct list child_list;
@@ -127,8 +128,7 @@ struct thread
     int is_exit; // likes thread_status
 
     /*** hyeRexx : deny ***/
-    struct file *curr_file;
-#endif 
+    struct file *curr_file;                            
 
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */

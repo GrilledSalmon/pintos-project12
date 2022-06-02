@@ -217,6 +217,10 @@ int open(const char *file)
     }
 
     int fd = process_add_file(new_file);
+
+    if(fd == -1) {
+        close(new_file);
+    }
     
     return fd; // return file descriptor for 'file'
 }

@@ -231,18 +231,18 @@ process_exec (void *f_name) {
 	/* And then load the binary */
 	success = load (args_parsed[0], &_if);
 
+	/* If load failed, quit. */
+	if (!success)
+    {
+	    palloc_free_page(file_name);
+	    palloc_free_page(args_parsed);
+		return -1;
+    }
+
 	/*** Jack ***/
 	/* Set arguments to interrupt frame */
 	argument_stack(args_parsed, arg_count, &_if);
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
-
-	/* If load failed, quit. */
-	if (!success)
-    {
-	    // palloc_free_page (file_name);
-	    // palloc_free_page(args_parsed);
-		return -1;
-    }
 
 	/* Start switched process. */
 	do_iret (&_if);
@@ -338,7 +338,10 @@ process_exit (void) {
 	int curr_fd_edge;
 	struct file *curr_f;
 	for (curr_fd_edge = thread_current()->fd_edge - 1; curr_fd_edge >= 2; curr_fd_edge--)
+    {
 		process_close_file(curr_fd_edge);
+        // printf("__debug :: fd_edge : %d\n", curr_fd_edge);
+    }
 	palloc_free_page(thread_current()->fdt);	// 할당받은 fdt page 반납
 	thread_current()->fdt = NULL;				// 명시적 NULL
 
@@ -349,6 +352,19 @@ process_exit (void) {
         file_allow_write(curr->curr_file);
         sema_up(&file_sema);
     }
+
+    // if(list_empty(&curr->child_list))
+    // {
+    //     struct list_elem *ref_e;
+    //     struct thread *ref_child;
+    //     for(ref_e = list_begin(&curr->child_list); ref_e != list_tail(&curr->child_list
+    //     ); ref_e = list_next(ref_e))
+    //     {
+    //         ref_child = list_entry(ref_e, struct thread, c_elem);
+    //         wait(ref_child);
+    //         // printf("__debug :: last wait check!");
+    //     }
+    // }
 
 	process_cleanup ();
 }
@@ -784,7 +800,7 @@ setup_stack (struct intr_frame *if_) {
 struct file *process_get_file(int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-    if(fd > 511 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
+    if(fd > 126 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	return thread_current()->fdt[fd];
 }
@@ -793,7 +809,7 @@ struct file *process_get_file(int fd)
 void process_close_file (int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-	if(fd > 511 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
+	if(fd > 126 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	struct file *f = thread_current()->fdt[fd];
 	if (f == NULL)
@@ -807,6 +823,7 @@ void process_close_file (int fd)
 int process_add_file(struct file *f)
 {
     struct thread *curr_thread = thread_current(); // current thread
+    if(curr_thread->fd_edge > 126) return -1;
     int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
     ASSERT(new_fd > 1);
     curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
