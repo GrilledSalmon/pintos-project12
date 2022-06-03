@@ -809,8 +809,13 @@ void process_close_file (int fd)
 	if (f == NULL)
 		return;
 
-	file_close(f);
-	thread_current()->fdt[fd] = NULL;
+	if (file_get_dup_cnt(f) == 0) {
+		file_close(f);
+		thread_current()->fdt[fd] = NULL;
+	}
+	else {
+		file_dup_cnt_down(f);
+	}
 }
 
 /*** hyeRexx ***/

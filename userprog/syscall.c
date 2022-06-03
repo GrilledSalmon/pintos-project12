@@ -35,6 +35,7 @@ void seek (int fd, unsigned position);
 int read (int fd, void *buffer, unsigned size); 	/*** GrilledSalmon ***/
 int write (int fd, void *buffer, unsigned size);    /*** GrilledSalmon ***/
 unsigned tell (int fd);                             /*** GrilledSalmon ***/
+int dup2(int oldfd, int newfd);                             /*** GrilledSalmon ***/
 
 typedef int pid_t;
 int wait (pid_t pid);                               /*** Jack ***/
@@ -138,7 +139,11 @@ syscall_handler (struct intr_frame *f UNUSED)
         
         case SYS_CLOSE :
             close(f->R.rdi);
-            break;        
+            break;      
+
+        case SYS_DUP2 :
+            dup2(f->R.rdi, f->R.rsi);  
+            break;
     }
 	// printf ("system call!\n");
     
@@ -343,3 +348,27 @@ pid_t fork (const char *thread_name, struct intr_frame *intr_f) // 파라미터 
     return (child == TID_ERROR) ? TID_ERROR : child; 
 }
 
+/*** GrilledSalmon ***/
+int dup2(int oldfd, int newfd)
+{
+    struct thread *curr_thread = thread_current();
+    struct file *old_file = process_get_file(oldfd);
+    struct file *new_file = process_get_file(newfd);
+
+    if (old_file == NULL || oldfd > 126 || oldfd < 0 || newfd > 126 || newfd < 0) {
+        return -1;
+    }
+
+    if (oldfd == newfd){
+        return newfd;
+    }
+
+    if (new_file != NULL) {
+        process_close_file(new_file);
+    }
+
+    file_dup_cnt_up(old_file);
+    curr_thread->fdt[newfd] = old_file;
+
+    return newfd;
+}
