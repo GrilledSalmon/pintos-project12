@@ -27,6 +27,8 @@ main (int argc UNUSED, char *argv[] UNUSED) {
   buffer = get_boundary_area () - sizeof sample / 2;
   byte_cnt += read (fd1, buffer + byte_cnt, 10);
 
+  msg("__debug :: fd1 : %d --- fd2 : %d", fd1, fd2);
+  msg("__dsbug :: buffer : %s", buffer);
   CHECK (dup2 (fd1, fd2) > 1, "first dup2()");
 
   byte_cnt += read (fd2, buffer + byte_cnt , sizeof sample - byte_cnt);

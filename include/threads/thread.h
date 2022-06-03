@@ -113,6 +113,8 @@ struct thread
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */ /* Page Table! */
 
+
+#endif 
 	/*** team 8 : phase 2 ***/
 	struct file **fdt;				// file descriptor table
 	int fd_edge;					// file descriptor edge num
@@ -129,7 +131,6 @@ struct thread
 
 	/*** Deny Write on Executables ***/
 	struct file *running_file;
-#endif 
 
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */

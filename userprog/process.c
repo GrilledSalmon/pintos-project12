@@ -340,7 +340,13 @@ process_exit (void) {
 	int curr_fd_edge;
 	struct file *curr_f;
 	for (curr_fd_edge = thread_current()->fd_edge - 1; curr_fd_edge >= 2; curr_fd_edge--)
-		process_close_file(curr_fd_edge);
+    {
+        if (get_dup_cnt(curr->fdt[curr_fd_edge]) != 0)
+        {
+		    process_close_file(curr_fd_edge);
+            reduce_dup_cnt(curr->fdt[curr_fd_edge]);
+        }
+    }
 	palloc_free_page(thread_current()->fdt);	// 할당받은 fdt page 반납
 	thread_current()->fdt = NULL;				// 명시적 NULL
 

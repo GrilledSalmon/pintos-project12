@@ -5,6 +5,7 @@
 
 struct inode;
 
+
 /* Opening and closing files. */
 struct file *file_open (struct inode *);
 struct file *file_reopen (struct file *);
@@ -31,5 +32,10 @@ off_t file_length (struct file *);
 /* Lock for file */
 void file_lock_acquire (struct file *f);
 void file_lock_release (struct file *f);
+
+/*** hyeRexx ***/
+int get_dup_cnt(struct file *f);
+void increase_dup_cnt(struct file *f);
+void reduce_dup_cnt(struct file *f);
 
 #endif /* filesys/file.h */

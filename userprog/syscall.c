@@ -138,9 +138,12 @@ syscall_handler (struct intr_frame *f UNUSED)
         
         case SYS_CLOSE :
             close(f->R.rdi);
-            break;        
+            break;     
+        
+        case SYS_DUP2 :
+            f->R.rax = dup2(f->R.rdi, f->R.rsi);
+            break;
     }
-	// printf ("system call!\n");
     
 	do_iret(f);
 	NOT_REACHED();
@@ -341,5 +344,22 @@ pid_t fork (const char *thread_name, struct intr_frame *intr_f) // 파라미터 
 
     tid_t child = process_fork(thread_name, intr_f);
     return (child == TID_ERROR) ? TID_ERROR : child; 
+}
+
+/*** hyeRexx ***/
+int dup2(int old_fd, int new_fd)
+{
+    if(old_fd == new_fd) return new_fd;
+    
+    struct thread *curr_thread = thread_current();
+    struct file *dup_file = process_get_file(old_fd);
+
+    if(!dup_file) return -1;
+
+    close(new_fd);
+    curr_thread->fdt[new_fd] = dup_file;
+    increase_dup_cnt(dup_file);
+    
+    return new_fd;
 }
 
