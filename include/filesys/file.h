@@ -32,4 +32,9 @@ off_t file_length (struct file *);
 void file_lock_acquire (struct file *f);
 void file_lock_release (struct file *f);
 
+/*** GrilledSalmon ***/
+void file_dup_cnt_up(struct file *f);
+void file_dup_cnt_down(struct file *f);
+int16_t file_get_dup_cnt(struct file *f);
+
 #endif /* filesys/file.h */

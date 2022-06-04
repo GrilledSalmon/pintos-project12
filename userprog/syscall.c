@@ -142,7 +142,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;      
 
         case SYS_DUP2 :
-            dup2(f->R.rdi, f->R.rsi);  
+            f->R.rax = dup2(f->R.rdi, f->R.rsi);  
             break;
     }
 	// printf ("system call!\n");
@@ -354,11 +354,12 @@ int dup2(int oldfd, int newfd)
     struct thread *curr_thread = thread_current();
     struct file *old_file = process_get_file(oldfd);
     struct file *new_file = process_get_file(newfd);
-
+    // printf("__debug :: this is kernel dup2 1st %d, %d\n", oldfd, newfd);
     if (old_file == NULL || oldfd > 126 || oldfd < 0 || newfd > 126 || newfd < 0) {
+        // printf("__debug :: this is kernel dup2 mid\n");
         return -1;
     }
-
+    // printf("__debug :: this is kernel dup2 2nd %d, %d\n", oldfd, newfd);
     if (oldfd == newfd){
         return newfd;
     }
