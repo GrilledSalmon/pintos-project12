@@ -15,6 +15,7 @@
 #include "list.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "filesys/file.h"		/*** GrilledSalmon ***/
 #endif
 
 /* for MLFQS */					/*** GrilledSalmon ***/
@@ -259,6 +260,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 	init_thread(t, name, priority); // 들어온 priority로 초기화
     
 #ifdef USERPROG						/*** GrilledSalmon ***/
+	fd_conv_table_init();
 	t->fdt = palloc_get_page(PAL_ZERO);
 	t->fd_edge = 2;
     t->is_exit = 0;
@@ -996,3 +998,14 @@ void mlfqs_recent_cpu(struct thread *t)
 	return;
 }
 
+/***GrilledSalmon***/
+/* thread 구조체의 fd_conv_table 멤버 초기화
+ * 페이지 할당받고 stdin, stdout 초기화(열려 있다는 표시) */
+void fd_conv_table_init(void)
+{
+	struct thread *t = thread_current();
+	
+	t->fd_conv_table = palloc_get_page(PAL_ZERO);
+	t->fd_conv_table[0].user_fd = 0;	// STDIN
+	t->fd_conv_table[1].user_fd = 1;	// STDOUT
+}

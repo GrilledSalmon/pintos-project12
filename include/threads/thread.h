@@ -114,6 +114,7 @@ struct thread
 	uint64_t *pml4; /* Page map level 4 */ /* Page Table! */
 
 	/*** team 8 : phase 2 ***/
+	struct fd_key_value *fd_conv_table;  	// table of (user_fd, kernel_fd)
 	struct file **fdt;				// file descriptor table
 	int fd_edge;					// file descriptor edge num
     
@@ -205,3 +206,6 @@ void mlfqs_priority(struct thread *t);
 
 /*** Jack ***/
 void mlfqs_recent_cpu(struct thread *t);
+
+/*** GrilledSalmon ***/
+void fd_conv_table_init(void);

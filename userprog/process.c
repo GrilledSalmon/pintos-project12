@@ -176,10 +176,11 @@ __do_fork (void *aux) {
 #endif
 
     /*** hyeRexx : duplicate files ***/
-    for(int fd = curr_thread->fd_edge; fd < parent->fd_edge; fd = ++(curr_thread->fd_edge)) 
+	memcpy(curr_thread->fd_conv_table, parent->fd_conv_table, PGSIZE); // fd_conv_table 정보 복사
+    for(int kernel_fd = curr_thread->fd_edge; kernel_fd < parent->fd_edge; kernel_fd = ++(curr_thread->fd_edge)) 
     {
-   	if(parent->fdt[fd] == NULL) continue;
-        curr_thread->fdt[fd] = file_duplicate(parent->fdt[fd]);
+		if(parent->fdt[kernel_fd] == NULL) continue;
+			curr_thread->fdt[kernel_fd] = file_duplicate(parent->fdt[kernel_fd]);
     }
     
     ASSERT(curr_thread->fd_edge == parent->fd_edge);
@@ -339,10 +340,13 @@ process_exit (void) {
 	/*** Cleanup resources related to file system ***/
 	int curr_fd_edge;
 	struct file *curr_f;
-	for (curr_fd_edge = thread_current()->fd_edge - 1; curr_fd_edge >= 2; curr_fd_edge--)
+	for (curr_fd_edge = curr->fd_edge - 1; curr_fd_edge >= 2; curr_fd_edge--)
 		process_close_file(curr_fd_edge);
-	palloc_free_page(thread_current()->fdt);	// 할당받은 fdt page 반납
-	thread_current()->fdt = NULL;				// 명시적 NULL
+
+	palloc_free_page(curr->fdt);	// 할당받은 fdt page 반납
+	palloc_free_page(curr->fd_conv_table);
+	curr->fdt = NULL;				// 명시적 NULL
+	curr->fd_conv_table = NULL;
 
 	/* Cleanup resources releated to virtual memory */
 	process_cleanup ();
@@ -791,31 +795,43 @@ setup_stack (struct intr_frame *if_) {
 #ifdef USERPROG
 /*** Jack ***/
 /*** Return file table pointer matched by fd in file descriptor table of current thread  ***/
-struct file *process_get_file(int fd)
-{
-	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-    if(fd > 126 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
+struct file *process_get_file(int user_fd)
+{   
+	struct thread *curr_thread = thread_current();
+	if (user_fd < 2) { // process_fet_file에 들어오는 user_fd가 stdin, stdout이면
+		return NULL;
+	}
 
-	return thread_current()->fdt[fd];
+	struct fd_key_value *fkv = find_fd_key_value(user_fd);
+	
+	if (fkv == NULL) // user_fd에 맞는 kernel_fd가 없는 경우
+		return NULL;
+
+	return thread_current()->fdt[fkv->kernel_fd];
 }
 
 /*** Close file ***/
-void process_close_file (int fd)
+void process_close_file (int user_fd)
 {
-	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-	if(fd > 126 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
+	struct fd_key_value *fkv = find_fd_key_value(user_fd);
+	if (fkv == NULL) {		// 없는 user_fd를 닫으려고 하는 경우
+		return;
+	}
 
-	struct file *f = thread_current()->fdt[fd];
-	if (f == NULL)
+	fkv->user_fd = NULL;	// user_fd 정보 지워주기
+
+	struct file *f = thread_current()->fdt[fkv->kernel_fd];
+	if (f == NULL)	// fkv가 있지만 kernel_fd에 해당하는 파일이 지정되지 않은 경우(STDIN, STDOUT)
 		return;
 
 	if (file_get_dup_cnt(f) == 0) {
 		file_close(f);
-		thread_current()->fdt[fd] = NULL;
 	}
 	else {
 		file_dup_cnt_down(f);
 	}
+	thread_current()->fdt[fkv->kernel_fd] = NULL;
+	fkv->kernel_fd = NULL;	// kernel_fd 정보 지워주기
 }
 
 /*** hyeRexx ***/
@@ -824,8 +840,17 @@ int process_add_file(struct file *f)
     struct thread *curr_thread = thread_current(); // current thread
     int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
     ASSERT(new_fd > 1);
-	if (new_fd > 126)
+	if (new_fd > FDTSIZE)
 		return -1;
+
+	struct fd_key_value *empty_fkv = find_fd_key_value(NULL); // 비어 있는 fkv 찾기
+	if (empty_fkv == NULL) { // 비어 있는 게 없는 경우()
+		return -1;
+	}
+
+	empty_fkv->user_fd = new_fd;
+	empty_fkv->kernel_fd = new_fd;
+	
     curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
 
     return new_fd;
@@ -864,6 +889,20 @@ void remove_child_process(struct thread *cp)
 	list_remove(&(cp->c_elem));
 	palloc_free_page(cp);
 	return;
+}
+
+/*** GrilledSalmon ***/
+/* 현재 thread에서 user_fd에 맞는 fd_key_value 구조체 포인터 리턴 */
+struct fd_key_value *find_fd_key_value(int user_fd)
+{
+	struct thread *curr_thread = thread_current();
+
+	for (int i=0; i<FDTSIZE; i++) {
+		if (curr_thread->fd_conv_table[i].user_fd == user_fd){
+			return &(curr_thread->fd_conv_table[i]);
+		}
+	}
+	return NULL;
 }
 
 #endif // USERPROG

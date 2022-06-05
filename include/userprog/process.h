@@ -17,11 +17,13 @@ void argument_stack (char **parse, int count, struct intr_frame *_if);        /*
 
 /*** team 8 : phase 2 ***/
 int process_add_file(struct file *f);
-struct file *process_get_file(int fd);
-void process_close_file(int fd);
+struct file *process_get_file(int user_fd);
+void process_close_file(int user_fd);
 
 /*** team 8 : phase 3 ***/
 void remove_child_process(struct thread *cp);
 struct thread *get_child_process (int pid);
+
+struct fd_key_value *find_fd_key_value(int user_fd); /*** GrilledSalmon ***/
 
 #endif //userprog // debugging genie

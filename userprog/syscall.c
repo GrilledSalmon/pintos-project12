@@ -32,10 +32,10 @@ bool remove (const char *file);
 int filesize (int fd);
 void seek (int fd, unsigned position);
 
-int read (int fd, void *buffer, unsigned size); 	/*** GrilledSalmon ***/
-int write (int fd, void *buffer, unsigned size);    /*** GrilledSalmon ***/
+int read (int user_fd, void *buffer, unsigned size); 	/*** GrilledSalmon ***/
+int write (int user_fd, void *buffer, unsigned size);    /*** GrilledSalmon ***/
 unsigned tell (int fd);                             /*** GrilledSalmon ***/
-int dup2(int oldfd, int newfd);                             /*** GrilledSalmon ***/
+int dup2(int old_user_fd, int new_user_fd);                             /*** GrilledSalmon ***/
 
 typedef int pid_t;
 int wait (pid_t pid);                               /*** Jack ***/
@@ -239,7 +239,6 @@ void close(int fd)
 /* Change offset from origin to 'position' */
 void seek (int fd, unsigned position)
 {
-    ASSERT(fd >= 0);
     ASSERT (position >= 0);
 
     struct file* f = process_get_file(fd);
@@ -250,16 +249,19 @@ void seek (int fd, unsigned position)
 }
 
 /*** GrilledSalmon ***/
-int read (int fd, void *buffer, unsigned size)
+int read (int user_fd, void *buffer, unsigned size)
 {
     check_address(buffer);
+
+    struct fd_key_value *fkv = find_fd_key_value(user_fd);
+
+    if (fkv == NULL) { // user_fd가 유효한 식별자가 아닐 경우(또는 닫힌 경우)
+        return -1;
+    }
     
     uint64_t read_len = 0;              // 읽어낸 길이
 
-	if (fd == 0) { 			            /* fd로 stdin이 들어온 경우 */
-        
-        /*** extra할 때 수정된대유 ***/
-
+	if (fkv->kernel_fd == 0) { 			/* fd로 STDIN이 들어온 경우 */
         char *buffer_cursor = buffer;
         lock_acquire(&filesys_lock);    // debugging genie
         while (read_len < size)
@@ -273,9 +275,10 @@ int read (int fd, void *buffer, unsigned size)
         return read_len;
 	}
 
-	struct file *now_file = process_get_file(fd);
+	struct file *now_file = process_get_file(user_fd);
 
-    if (now_file == NULL || fd == 1){   // fd로 stdout이 들어왔거나 file이 없는 경우
+    // file이 없거나 STDOUT을 가리키는 user_fd가 들어온 경우
+    if (now_file == NULL || fkv->kernel_fd == 1){
         return -1;
     }
 
@@ -287,20 +290,28 @@ int read (int fd, void *buffer, unsigned size)
 }
 
 /*** GrilledSalmon ***/
-int write (int fd, void *buffer, unsigned size)
+int write (int user_fd, void *buffer, unsigned size)
 {
     check_address(buffer);
 
-    if (fd == 1) {                      // fd == stdout인 경우
+    struct fd_key_value *fkv = find_fd_key_value(user_fd);
+
+    if (fkv == NULL) { // user_fd가 유효한 식별자가 아닐 경우(또는 닫힌 경우)
+        return -1;
+    }
+
+    if (fkv->kernel_fd == 1)        // fd == STDOUT인 경우    
+    {
         lock_acquire(&filesys_lock);
         putbuf(buffer, size);
         lock_release(&filesys_lock);
         return size;
     }
 
-    struct file *now_file = process_get_file(fd);
+    struct file *now_file = process_get_file(user_fd);
 
-    if (now_file == NULL || fd == 0){   // fd로 stdin이 들어왔거나 file이 없는 경우
+    // file이 없거나 STDIN을 가리키는 user_fd가 들어온 경우
+    if (now_file == NULL || fkv->kernel_fd == 0){
         return -1;
     }
 
@@ -349,27 +360,31 @@ pid_t fork (const char *thread_name, struct intr_frame *intr_f) // 파라미터 
 }
 
 /*** GrilledSalmon ***/
-int dup2(int oldfd, int newfd)
+int dup2(int old_user_fd, int new_user_fd)
 {
     struct thread *curr_thread = thread_current();
-    struct file *old_file = process_get_file(oldfd);
-    struct file *new_file = process_get_file(newfd);
-    // printf("__debug :: this is kernel dup2 1st %d, %d\n", oldfd, newfd);
-    if (old_file == NULL || oldfd > 126 || oldfd < 0 || newfd > 126 || newfd < 0) {
-        // printf("__debug :: this is kernel dup2 mid\n");
+    struct fd_key_value *old_fkv = find_fd_key_value(old_user_fd);
+    struct fd_key_value *new_fkv = find_fd_key_value(new_user_fd);
+
+    if (old_fkv == NULL) {
         return -1;
     }
-    // printf("__debug :: this is kernel dup2 2nd %d, %d\n", oldfd, newfd);
-    if (oldfd == newfd){
-        return newfd;
+
+    if (old_user_fd == new_user_fd){
+        return new_user_fd;
     }
+
+    new_fkv->kernel_fd = old_fkv->kernel_fd;
+
+    struct file *old_file = process_get_file(old_user_fd);
+    struct file *new_file = process_get_file(new_user_fd);
 
     if (new_file != NULL) {
         process_close_file(new_file);
+        curr_thread->fdt[new_fkv->kernel_fd] = NULL;
     }
 
     file_dup_cnt_up(old_file);
-    curr_thread->fdt[newfd] = old_file;
 
-    return newfd;
+    return new_user_fd;
 }

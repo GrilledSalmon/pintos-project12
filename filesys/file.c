@@ -8,7 +8,7 @@ struct file {
 	struct inode *inode;        /* File's inode. */
 	off_t pos;                  /* Current position. */
 	bool deny_write;            /* Has file_deny_write() been called? */
-	int16_t dup_cnt;				/* How many files dup it. *//*** GrilledSalmon ***/
+	int16_t dup_cnt;			/* How many files duped this file. *//*** GrilledSalmon ***/
 };
 
 /* Opens a file for the given INODE, of which it takes ownership,

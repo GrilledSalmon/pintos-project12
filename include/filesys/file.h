@@ -5,6 +5,14 @@
 
 struct inode;
 
+/***GrilledSalmon***/
+#define FDTSIZE 128
+
+struct fd_key_value {
+	int user_fd;		// 유저가 사용하는 fd값
+	int kernel_fd;		// 커널이 사용하는 fd값
+};
+
 /* Opening and closing files. */
 struct file *file_open (struct inode *);
 struct file *file_reopen (struct file *);
